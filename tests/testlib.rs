@@ -1,3 +1,5 @@
+// Integration tests for the library
+
 extern crate rtss;
 
 #[test]

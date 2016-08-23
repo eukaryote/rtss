@@ -9,7 +9,7 @@ static mut NACL_INITIALIZED: bool = false;  // whether we've initialized nacl
 
 pub fn nacl_init() {
     unsafe {
-        if ! NACL_INITIALIZED {
+        if !NACL_INITIALIZED {
             sodiumoxide::init();
             NACL_INITIALIZED = true;
         }
@@ -20,7 +20,7 @@ fn readn(path: &str, max_size: usize) -> Result<Vec<u8>, String> {
     match File::open(path) {
         Err(why) => {
             return Err(why.description().to_string());
-        },
+        }
         Ok(mut file) => {
             let mut buffer = vec![0; max_size + 1];
             match file.read(&mut buffer) {
@@ -54,7 +54,7 @@ mod tests {
     impl<'a> fmt::LowerHex for ByteBuf<'a> {
         fn fmt(&self, fmtr: &mut fmt::Formatter) -> Result<(), fmt::Error> {
             for byte in self.0 {
-                try!( fmtr.write_fmt(format_args!("{:02x}", byte)));
+                try!(fmtr.write_fmt(format_args!("{:02x}", byte)));
             }
             Ok(())
         }

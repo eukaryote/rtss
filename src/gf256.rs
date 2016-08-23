@@ -1,3 +1,4 @@
+#[cfg_attr(rustfmt, rustfmt_skip)]
 static EXP: [u8; 255] = [
     0x01, 0x03, 0x05, 0x0f, 0x11, 0x33, 0x55, 0xff,
     0x1a, 0x2e, 0x72, 0x96, 0xa1, 0xf8, 0x13, 0x35,
@@ -33,6 +34,7 @@ static EXP: [u8; 255] = [
     0x1c, 0x24, 0x6c, 0xb4, 0xc7, 0x52, 0xf6
 ];
 
+#[cfg_attr(rustfmt, rustfmt_skip)]
 static LOG: [u8; 256] = [
     0x00, 0x00, 0x19, 0x01, 0x32, 0x02, 0x1a, 0xc6,
     0x4b, 0xc7, 0x1b, 0x68, 0x33, 0xee, 0xdf, 0x03,
@@ -87,7 +89,11 @@ pub fn divide(a: u8, b: u8) -> u8 {
         return 0;
     }
     let (loga, logb) = (LOG[a as usize], LOG[b as usize]);
-    let diff = if logb > loga { 255 - (logb - loga) } else { loga - logb };
+    let diff = if logb > loga {
+        255 - (logb - loga)
+    } else {
+        loga - logb
+    };
     EXP[diff as usize]
 }
 
@@ -95,7 +101,7 @@ pub fn divide(a: u8, b: u8) -> u8 {
 mod tests {
     use super::{add, multiply, divide, EXP, LOG};
 
-     #[test]
+    #[test]
     fn test_add() {
         for a in 0u16..256u16 {
             for b in 0..256u16 {
@@ -113,20 +119,18 @@ mod tests {
     fn test_multiply() {
         for a in 0u16..256u16 {
             for b in 0u16..256u16 {
-                let expected =
-                    if a == 0 || b == 0 {
-                        0u8
-                    } else if a == 1 {
-                        b as u8
-                    } else if b == 1 {
-                        a as u8
-                    } else {
-                        let loga = LOG[a as usize] as u16;
-                        let logb = LOG[b as usize] as u16;
-                        let index = (loga + logb) % 255;
-                        EXP[index as usize]
-                    }
-                ;
+                let expected = if a == 0 || b == 0 {
+                    0u8
+                } else if a == 1 {
+                    b as u8
+                } else if b == 1 {
+                    a as u8
+                } else {
+                    let loga = LOG[a as usize] as u16;
+                    let logb = LOG[b as usize] as u16;
+                    let index = (loga + logb) % 255;
+                    EXP[index as usize]
+                };
                 assert_eq!(expected, multiply(a as u8, b as u8));
             }
         }
@@ -163,12 +167,11 @@ mod tests {
                         index = logn - logd
                     }
                 }
-                let expected =
-                    if numerator == 0 {
-                        0
-                    } else {
-                        EXP[(index % 255) as usize]
-                    };
+                let expected = if numerator == 0 {
+                    0
+                } else {
+                    EXP[(index % 255) as usize]
+                };
                 assert_eq!(expected, divide(numerator as u8, denominator as u8));
             }
         }

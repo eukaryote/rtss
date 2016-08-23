@@ -31,16 +31,19 @@ struct RTSS {
 }
 
 impl RTSS {
-    fn new(identifier: [u8; IDENTIFIER_SIZE], hash_alg_id: HashAlgId,
-           threshold: u8, data: Vec<u8>) -> Result<RTSS, String> {
+    fn new(identifier: [u8; IDENTIFIER_SIZE],
+           hash_alg_id: HashAlgId,
+           threshold: u8,
+           data: Vec<u8>)
+           -> Result<RTSS, String> {
         if threshold == 0 {
             return Err(String::from("threshold must be at least 1"));
         }
-        Ok(RTSS{
+        Ok(RTSS {
             identifier: identifier,
             hash_alg_id: hash_alg_id,
             threshold: threshold,
-            data: data
+            data: data,
         })
     }
     fn to_bytes(&mut self) -> Vec<u8> {
@@ -78,11 +81,9 @@ impl RTSS {
             n => return Err(format!("invalid hash_alg_id {}", n)),
         };
         if (hash_alg_id as usize) != 2 {
-            return Err(
-                String::from("only Sha256 is supported for hash algorithm id.")
-            );
+            return Err(String::from("only Sha256 is supported for hash algorithm id."));
         }
-        return Ok(RTSS{
+        return Ok(RTSS {
             identifier: identifier,
             hash_alg_id: hash_alg_id as HashAlgId,
             threshold: data[IDENTIFIER_SIZE + 1],
@@ -124,21 +125,18 @@ fn interpolate(u: &[u8], v: &[u8]) -> u8 {
 }
 
 fn mkidentifier() -> [u8; IDENTIFIER_SIZE] {
-    let mut rng = rand::os::OsRng::new()
-        .expect("couldn't acquire secure PSRNG");
-    let mut id = [1,2,3,4,5,6,7,8,1,2,3,4,5,6,7,8];
+    let mut rng = rand::os::OsRng::new().expect("couldn't acquire secure PSRNG");
+    let mut id = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8];
     rng.fill_bytes(&mut id);
     id
 }
 
 fn validate_share_args(secret: &Vec<u8>, k: u8, n: u8) -> Result<(), String> {
     if secret.len() > SHARE_DATA_MAX {
-        return Err(format!("secret must be no larger than {} bytes",
-                           SHARE_DATA_MAX));
+        return Err(format!("secret must be no larger than {} bytes", SHARE_DATA_MAX));
     }
     if k > n {
-        return Err(String::from(
-            "threshold k should be less than number of shares n"));
+        return Err(String::from("threshold k should be less than number of shares n"));
     }
     Ok(())
 }
@@ -159,7 +157,7 @@ fn share_tss(secret: &Vec<u8>, k: u8, n: u8) -> Result<Vec<Vec<u8>>, String> {
     for octet in secret {
         let mut a: Vec<u8> = Vec::with_capacity(k as usize);
         a.push(*octet);
-        for _ in 0..k-1 {
+        for _ in 0..k - 1 {
             a.push(rng.gen::<u8>());
         }
         for i in 0..n {
@@ -217,9 +215,7 @@ fn reconstruct_tss(shares: &Vec<Vec<u8>>) -> Result<Vec<u8>, String> {
     for share in shares.iter() {
         let first_byte = share[0] as usize;
         if seen[first_byte] {
-            return Err(
-                String::from("initial byte of each share should be distinct")
-            );
+            return Err(String::from("initial byte of each share should be distinct"));
         } else {
             seen[first_byte] = true;
         }
@@ -289,8 +285,7 @@ pub fn reconstruct_rtss(shares: &Vec<Vec<u8>>) -> Result<Vec<u8>, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{mkidentifier, share_tss, share_rtss, reconstruct_tss,
-                reconstruct_rtss};
+    use super::{mkidentifier, share_tss, share_rtss, reconstruct_tss, reconstruct_rtss};
 
     use rand::{OsRng, Rng};
 
@@ -333,9 +328,12 @@ mod tests {
     #[test]
     fn test_reconstruct_tss() {
         let shares = share_tss(&SECRET.to_vec(), K, N).unwrap();
-        assert_eq!(SECRET.to_vec(), reconstruct_tss(&shares[0..2].to_vec()).unwrap());
-        assert_eq!(SECRET.to_vec(), reconstruct_tss(&shares[1..3].to_vec()).unwrap());
-        assert_eq!(SECRET.to_vec(), reconstruct_tss(&vec![shares[0].to_owned(), shares[2].to_owned()]).unwrap());
+        assert_eq!(SECRET.to_vec(),
+                   reconstruct_tss(&shares[0..2].to_vec()).unwrap());
+        assert_eq!(SECRET.to_vec(),
+                   reconstruct_tss(&shares[1..3].to_vec()).unwrap());
+        assert_eq!(SECRET.to_vec(),
+                   reconstruct_tss(&vec![shares[0].to_owned(), shares[2].to_owned()]).unwrap());
     }
 
     #[test]
@@ -350,7 +348,8 @@ mod tests {
         let shares = share_tss(&secret, K, N).unwrap();
         assert_eq!(secret, reconstruct_tss(&shares[0..2].to_vec()).unwrap());
         assert_eq!(secret, reconstruct_tss(&shares[1..3].to_vec()).unwrap());
-        assert_eq!(secret, reconstruct_tss(&vec![shares[0].to_owned(), shares[2].to_owned()]).unwrap());
+        assert_eq!(secret,
+                   reconstruct_tss(&vec![shares[0].to_owned(), shares[2].to_owned()]).unwrap());
     }
 
     #[test]
@@ -359,6 +358,7 @@ mod tests {
         let secret = SECRET.to_vec();
         assert_eq!(secret, reconstruct_rtss(&shares[0..2].to_vec()).unwrap());
         assert_eq!(secret, reconstruct_rtss(&shares[1..3].to_vec()).unwrap());
-        assert_eq!(secret, reconstruct_rtss(&vec![shares[0].to_owned(), shares[2].to_owned()]).unwrap());
+        assert_eq!(secret,
+                   reconstruct_rtss(&vec![shares[0].to_owned(), shares[2].to_owned()]).unwrap());
     }
 }

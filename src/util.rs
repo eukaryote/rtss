@@ -23,6 +23,7 @@ pub fn nacl_init() {
 /// If there are no more than n bytes in the file, the success branch of the
 /// `Result` will contain all the bytes of the file, otherwise the `Result`
 /// will be an error message.
+#[allow(dead_code)]
 fn readn(path: &str, max_size: usize) -> Result<Vec<u8>, String> {
     match File::open(path) {
         Err(why) => {

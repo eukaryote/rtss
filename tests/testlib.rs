@@ -1,12 +1,12 @@
-// Integration tests for the library
+//! Integration tests for the library
 
 extern crate rtss;
 
 #[test]
 fn test_roundtrip_exact_threshold() {
     let secret = "Hello, world!".as_bytes().to_vec();
-    let shares = rtss::share_rtss(&secret, 3, 3).unwrap();
-    let result = rtss::reconstruct_rtss(&shares).unwrap();
+    let shares = rtss::share_rtss(&secret, 2, 3).unwrap();
+    let result = rtss::reconstruct_rtss(&shares[0..2].to_vec()).unwrap();
     assert_eq!(secret, result);
 }
 

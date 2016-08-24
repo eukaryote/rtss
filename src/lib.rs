@@ -1,3 +1,5 @@
+//! Public API for rtss library.
+
 extern crate rand;
 extern crate sodiumoxide;
 extern crate byteorder;

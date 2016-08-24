@@ -1,3 +1,5 @@
+//! Utilities for IO and generation of digest used in robust serialization.
+
 use sodiumoxide;
 use sodiumoxide::crypto::hash::sha256;
 
@@ -16,6 +18,11 @@ pub fn nacl_init() {
     }
 }
 
+/// Read no more than n bytes from file at given path.
+///
+/// If there are no more than n bytes in the file, the success branch of the
+/// `Result` will contain all the bytes of the file, otherwise the `Result`
+/// will be an error message.
 fn readn(path: &str, max_size: usize) -> Result<Vec<u8>, String> {
     match File::open(path) {
         Err(why) => {
@@ -37,7 +44,9 @@ fn readn(path: &str, max_size: usize) -> Result<Vec<u8>, String> {
     }
 }
 
-pub fn hash(message: &[u8]) -> sha256::Digest {
+/// Calcuate the SHA-256 digest of the given data.
+///
+pub fn digest(message: &[u8]) -> sha256::Digest {
     nacl_init();
     sha256::hash(message)
 }
@@ -47,7 +56,7 @@ mod tests {
 
     use std::fmt;
 
-    use super::{readn, hash};
+    use super::{readn, digest};
 
     struct ByteBuf<'a>(&'a [u8]);
 
@@ -83,16 +92,16 @@ mod tests {
         assert!(res.is_err());
     }
     #[test]
-    fn test_hash_empty_string() {
+    fn test_digest_empty_string() {
         let s: [u8; 0] = [];
-        let res = hash(&s);
+        let res = digest(&s);
         let hex_digest = format!("{:x}", ByteBuf(&res.as_ref()));
         assert_eq!(EMPTY_STR_SHA256_HEX, hex_digest);
     }
     #[test]
-    fn test_hash_nonempty_string() {
+    fn test_digest_nonempty_string() {
         let s: &[u8] = b"hello";
-        let res = hash(&s);
+        let res = digest(&s);
         let hex_digest = format!("{:x}", ByteBuf(&res.as_ref()));
         assert_eq!(HELLO_STR_SHA256_HEX, hex_digest);
     }

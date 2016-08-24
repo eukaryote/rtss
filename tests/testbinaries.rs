@@ -1,4 +1,4 @@
-// Integration tests for app binaries
+//! Integration tests for app binaries.
 
 use std::process::{Command, Output};
 

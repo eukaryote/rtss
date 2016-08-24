@@ -1,3 +1,5 @@
+//! GF256 arithmetic helpers, implemented using lookup tables.
+
 #[cfg_attr(rustfmt, rustfmt_skip)]
 static EXP: [u8; 255] = [
     0x01, 0x03, 0x05, 0x0f, 0x11, 0x33, 0x55, 0xff,

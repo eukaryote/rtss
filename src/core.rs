@@ -185,7 +185,7 @@ fn share_tss(secret: &Vec<u8>, k: u8, n: u8) -> Result<Vec<Vec<u8>>, String> {
 /// ```
 /// extern crate rtss;
 ///
-/// let secret = "Hello, world!".as_bytes().to_vec();
+/// let secret = b"Hello, world!".to_vec();
 /// let shares = rtss::share_rtss(&secret, 2, 3).unwrap();
 /// let result = rtss::reconstruct_rtss(&shares[0..2].to_vec()).unwrap();
 /// assert_eq!(secret, result);
@@ -267,7 +267,7 @@ fn reconstruct_tss(shares: &Vec<Vec<u8>>) -> Result<Vec<u8>, String> {
 /// ```
 /// extern crate rtss;
 ///
-/// let secret = "Hello, world!".as_bytes().to_vec();
+/// let secret = b"Hello, world!".to_vec();
 /// let shares = rtss::share_rtss(&secret, 2, 3).unwrap();
 /// let result = rtss::reconstruct_rtss(&shares[0..2].to_vec()).unwrap();
 /// assert_eq!(secret, result);

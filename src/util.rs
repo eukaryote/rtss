@@ -18,7 +18,7 @@ pub fn nacl_init() {
     }
 }
 
-/// Read no more than n bytes from file at given path.
+/// Read no more than `max_size` bytes from file at given path.
 ///
 /// If there are no more than n bytes in the file, the success branch of the
 /// `Result` will contain all the bytes of the file, otherwise the `Result`
@@ -46,7 +46,6 @@ fn readn(path: &str, max_size: usize) -> Result<Vec<u8>, String> {
 }
 
 /// Calcuate the SHA-256 digest of the given data.
-///
 pub fn digest(message: &[u8]) -> sha256::Digest {
     nacl_init();
     sha256::hash(message)

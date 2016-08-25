@@ -5,13 +5,11 @@ extern crate rustc_serialize;
 use rustc_serialize::hex::ToHex;
 use clap::{Arg, App};
 
-static EXPLANATION:  &'static str = "\
-Use Shamir's Secret Sharing scheme to encode a secret as N shares, any K of
-which is sufficient to reconstruct the secret.
-";
+static EXPLANATION:  &'static str = "Use Shamir's Secret Sharing scheme to \
+    encode a secret as N shares in the draft-mcgrew-tss-03 robust format, \
+    any K of which is sufficient to reconstruct the secret.";
 
-
-fn is_valid(v: String) -> Result<(), String> {
+fn is_nonzero_u8(v: String) -> Result<(), String> {
     let res = v.parse::<u8>();
     if res.is_ok() && res.unwrap() > 0 {
         Ok(())
@@ -35,16 +33,18 @@ fn run() -> i32 {
             .long("threshold")
             .takes_value(true)
             .required(true)
-            .validator(is_valid)
-            .help("minimum number of shares to reconstruct secret"))
+            .validator(is_nonzero_u8)
+            .help("minimum number of shares to reconstruct secret \
+                  [1-255, no greater than number of shares, and equal to \
+                  the number of shares if not provided]"))
         .arg(Arg::with_name("shares")
             .value_name("N")
             .short("n")
             .long("shares")
             .takes_value(true)
             .required(true)
-            .validator(is_valid)
-            .help("number of shares to create"))
+            .validator(is_nonzero_u8)
+            .help("number of shares to create [1-255]"))
         .arg(Arg::with_name("secret")
             .value_name("SECRET")
             .takes_value(true)

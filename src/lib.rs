@@ -2,7 +2,6 @@
 
 extern crate rand;
 extern crate sodiumoxide;
-extern crate byteorder;
 
 mod util;
 mod gf256;

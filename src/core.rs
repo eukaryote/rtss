@@ -5,9 +5,6 @@ use rand::Rng;
 
 use sodiumoxide::crypto::verify;
 
-use byteorder::{BigEndian, WriteBytesExt};
-
-
 use gf256;
 use util;
 
@@ -57,13 +54,14 @@ impl RTSS {
         // - share data [number of bytes specified in 'share length']
         let mut buff: Vec<u8> = Vec::with_capacity(size as usize);
         for byte in self.identifier.iter() {
-            buff.write_u8(*byte).unwrap();
+            buff.push(*byte);
         }
-        buff.write_u8(self.hash_alg_id as u8).unwrap();
-        buff.write_u8(self.threshold).unwrap();
-        buff.write_u16::<BigEndian>(size).unwrap();
+        buff.push(self.hash_alg_id as u8);
+        buff.push(self.threshold);
+        buff.push((size / 256) as u8);
+        buff.push(((size % 256)) as u8);
         for octet in self.data.iter() {
-            buff.write_u8(*octet).unwrap();
+            buff.push(*octet);
         }
         return buff.to_vec();
     }
@@ -85,10 +83,15 @@ impl RTSS {
         if (hash_alg_id as usize) != 2 {
             return Err(String::from("only Sha256 is supported for hash algorithm id."));
         }
+        let threshold = data[IDENTIFIER_SIZE + 1];
+        let size = ((data[IDENTIFIER_SIZE + 2] as usize) * 256) + (data[IDENTIFIER_SIZE + 3] as usize);
+        if data[IDENTIFIER_SIZE + 4..].len() != size {
+            return Err(String::from("encoded data length doesn't match actual data length"));
+        }
         return Ok(RTSS {
             identifier: identifier,
             hash_alg_id: hash_alg_id as HashAlgId,
-            threshold: data[IDENTIFIER_SIZE + 1],
+            threshold: threshold,
             data: data[IDENTIFIER_SIZE + 4..].to_vec(),
         });
     }

@@ -84,7 +84,8 @@ impl RTSS {
             return Err(String::from("only Sha256 is supported for hash algorithm id."));
         }
         let threshold = data[IDENTIFIER_SIZE + 1];
-        let size = ((data[IDENTIFIER_SIZE + 2] as usize) * 256) + (data[IDENTIFIER_SIZE + 3] as usize);
+        let size = ((data[IDENTIFIER_SIZE + 2] as usize) * 256) +
+                   (data[IDENTIFIER_SIZE + 3] as usize);
         if data[IDENTIFIER_SIZE + 4..].len() != size {
             return Err(String::from("encoded data length doesn't match actual data length"));
         }
@@ -107,28 +108,33 @@ fn f(x: u8, arr: &[u8]) -> u8 {
     total
 }
 
-fn lagrange(i: usize, u: &[u8]) -> u8 {
+fn lagrange(i: usize, u: &[u8]) -> Result<u8, String> {
     let mut result = 1;
     let gi = u[i];
     for (j, gj) in u.iter().enumerate() {
         if j != i {
+            if gi == *gj {
+                return Err(String::from("lagrange array u should be array of pairwise distinct \
+                                         octets"));
+            }
             result = gf256::multiply(result, gf256::divide(*gj, *gj ^ gi));
         }
     }
-    result
+    Ok(result)
 }
 
-fn interpolate(u: &[u8], v: &[u8]) -> u8 {
+fn interpolate(u: &[u8], v: &[u8]) -> Result<u8, String> {
     if u.len() != v.len() {
-        panic!("arrays to be interpolated must be same length");
+        return Err(String::from("arrays to be interpolated should be same length"));
     }
     let mut result = 0u8;
     for j in 0..u.len() {
-        result ^= gf256::multiply(lagrange(j, &u), v[j as usize]);
+        result ^= gf256::multiply(try!(lagrange(j, &u)), v[j as usize]);
     }
-    return result;
+    return Ok(result);
 }
 
+/// Generate a random 16-byte identifier for identifying a set of shares.
 fn mkidentifier() -> [u8; IDENTIFIER_SIZE] {
     let mut rng = rand::os::OsRng::new().expect("couldn't acquire secure PSRNG");
     let mut id = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8];
@@ -136,9 +142,13 @@ fn mkidentifier() -> [u8; IDENTIFIER_SIZE] {
     id
 }
 
+/// Validate secret is not longer than max supported length and that k and n are non-zero with k < n.
 fn validate_share_args(secret: &Vec<u8>, k: u8, n: u8) -> Result<(), String> {
     if secret.len() > SHARE_DATA_MAX {
         return Err(format!("secret must be no larger than {} bytes", SHARE_DATA_MAX));
+    }
+    if k == 0 || n == 0 {
+        return Err(String::from("threshold k and number of shares n should be non-zero"));
     }
     if k > n {
         return Err(String::from("threshold k should be less than number of shares n"));
@@ -216,6 +226,7 @@ pub fn share_rtss(secret: &Vec<u8>, k: u8, n: u8) -> Result<Vec<Vec<u8>>, String
     return Ok(vs);
 }
 
+/// Validate expected invariants of shares and answer the number of bytes in each shares.
 fn reconstruct_precheck(shares: &Vec<Vec<u8>>) -> Result<u16, String> {
     if shares.len() >= SHARES_MAX {
         return Err(format!("no more than {} shares are allowed", SHARES_MAX));
@@ -250,7 +261,7 @@ fn reconstruct_tss(shares: &Vec<Vec<u8>>) -> Result<Vec<u8>, String> {
     let mut secret: Vec<u8> = Vec::with_capacity(size - 1);
     for i in 1..size {
         let v: Vec<u8> = shares.iter().map(|ref s| s[i]).collect();
-        secret.push(interpolate(u.as_slice(), v.as_slice()));
+        secret.push(try!(interpolate(u.as_slice(), v.as_slice())));
     }
     return Ok(secret);
 }
@@ -373,13 +384,44 @@ mod tests {
 
     #[test]
     fn test_reconstruct_tss() {
-        let shares = share_tss(&SECRET.to_vec(), K, N).unwrap();
-        assert_eq!(SECRET.to_vec(),
-                   reconstruct_tss(&shares[0..2].to_vec()).unwrap());
-        assert_eq!(SECRET.to_vec(),
-                   reconstruct_tss(&shares[1..3].to_vec()).unwrap());
-        assert_eq!(SECRET.to_vec(),
-                   reconstruct_tss(&vec![shares[0].to_owned(), shares[2].to_owned()]).unwrap());
+        let secret = SECRET.to_vec();
+        let shares = share_tss(&secret, K, N).unwrap();
+
+        let shares01 = vec![shares[0].to_owned(), shares[1].to_owned()];
+        let shares02 = vec![shares[0].to_owned(), shares[2].to_owned()];
+        let shares12 = vec![shares[1].to_owned(), shares[2].to_owned()];
+        let shares10 = vec![shares[1].to_owned(), shares[0].to_owned()];
+        let shares20 = vec![shares[2].to_owned(), shares[0].to_owned()];
+        let shares21 = vec![shares[2].to_owned(), shares[1].to_owned()];
+
+        assert_eq!(secret, reconstruct_tss(&shares01).unwrap());
+        assert_eq!(secret, reconstruct_tss(&shares02).unwrap());
+        assert_eq!(secret, reconstruct_tss(&shares12).unwrap());
+        assert_eq!(secret, reconstruct_tss(&shares10).unwrap());
+        assert_eq!(secret, reconstruct_tss(&shares20).unwrap());
+        assert_eq!(secret, reconstruct_tss(&shares21).unwrap());
+    }
+
+    #[test]
+    fn test_reconstruct_tss_initial_bytes_not_distinct() {
+        let secret = SECRET.to_vec();
+        let shares = share_tss(&secret, K, N).unwrap();
+
+        let share0 = shares[0].to_owned();
+        let mut share1 = shares[1].to_owned();
+
+        // make initial bytes be equal, which is not possible for generated shares
+        share1[0] = share0[0];
+        let shares01 = vec![share0.to_owned(), share1.to_owned()];
+        match reconstruct_tss(&shares01) {
+            Err(msg) => {
+                assert_eq!(String::from("initial byte of each share should be distinct"),
+                           msg);
+            }
+            Ok(_) => {
+                panic!("expected error result for non-distinct initial bytes");
+            }
+        }
     }
 
     #[test]

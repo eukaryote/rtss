@@ -1,5 +1,6 @@
 //! GF256 arithmetic helpers, implemented using lookup tables.
 
+/// EXP[i] values, for i in range [0, 255).
 #[cfg_attr(rustfmt, rustfmt_skip)]
 static EXP: [u8; 255] = [
     0x01, 0x03, 0x05, 0x0f, 0x11, 0x33, 0x55, 0xff,
@@ -36,6 +37,7 @@ static EXP: [u8; 255] = [
     0x1c, 0x24, 0x6c, 0xb4, 0xc7, 0x52, 0xf6
 ];
 
+/// LOG[i] values, for i in range [1, 256).
 #[cfg_attr(rustfmt, rustfmt_skip)]
 static LOG: [u8; 256] = [
     0x00, 0x00, 0x19, 0x01, 0x32, 0x02, 0x1a, 0xc6,
@@ -72,10 +74,12 @@ static LOG: [u8; 256] = [
     0x0d, 0x63, 0x8c, 0x80, 0xc0, 0xf7, 0x70, 0x07,
 ];
 
+/// Add two GF(256) elements.
 pub fn add(a: u8, b: u8) -> u8 {
     a ^ b
 }
 
+/// Multiply two GF(256) elements.
 pub fn multiply(a: u8, b: u8) -> u8 {
     if a == 0 || b == 0 {
         return 0;
@@ -83,6 +87,7 @@ pub fn multiply(a: u8, b: u8) -> u8 {
     EXP[(((LOG[a as usize] as u16) + (LOG[b as usize] as u16)) % 255) as usize]
 }
 
+/// Divide GF(256) element `a` by non-zero GF(256) element `b`, panicking if `b` is zero.
 pub fn divide(a: u8, b: u8) -> u8 {
     if b == 0 {
         panic!("ZeroDivisionError");

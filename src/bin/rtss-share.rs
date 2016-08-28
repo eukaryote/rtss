@@ -25,7 +25,7 @@ fn main() {
 
 fn run() -> i32 {
     let matches = App::new("rtss")
-        .version("0.1")
+        .version("0.2.0")
         .about("Share a Secret")
         .arg(Arg::with_name("threshold")
             .value_name("K")

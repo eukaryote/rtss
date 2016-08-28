@@ -17,7 +17,7 @@ fn main() {
 
 fn run() -> i32 {
     let matches = App::new("rtss-reconstruct")
-        .version("0.1")
+        .version("0.2.0")
         .about("Reconstruct Secret from K Shares")
         .arg(Arg::with_name("share")
             .value_name("SHARE")

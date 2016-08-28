@@ -74,12 +74,12 @@ static LOG: [u8; 256] = [
     0x0d, 0x63, 0x8c, 0x80, 0xc0, 0xf7, 0x70, 0x07,
 ];
 
-/// Add two GF(256) elements.
+/// Adds two GF(256) elements.
 pub fn add(a: u8, b: u8) -> u8 {
     a ^ b
 }
 
-/// Multiply two GF(256) elements.
+/// Multiplies two GF(256) elements.
 pub fn multiply(a: u8, b: u8) -> u8 {
     if a == 0 || b == 0 {
         return 0;
@@ -87,7 +87,7 @@ pub fn multiply(a: u8, b: u8) -> u8 {
     EXP[(((LOG[a as usize] as u16) + (LOG[b as usize] as u16)) % 255) as usize]
 }
 
-/// Divide GF(256) element `a` by non-zero GF(256) element `b`, panicking if `b` is zero.
+/// Divides GF(256) element `a` by non-zero GF(256) element `b`, panicking if `b` is zero.
 pub fn divide(a: u8, b: u8) -> u8 {
     if b == 0 {
         panic!("ZeroDivisionError");
@@ -109,7 +109,7 @@ mod tests {
     use super::{add, multiply, divide, EXP, LOG};
 
     #[test]
-    fn test_add() {
+    fn it_adds_any_two_elems() {
         for a in 0u16..256u16 {
             for b in 0..256u16 {
                 let a = a as u8;
@@ -123,12 +123,29 @@ mod tests {
     }
 
     #[test]
-    fn test_multiply() {
-        for a in 0u16..256u16 {
-            for b in 0u16..256u16 {
-                let expected = if a == 0 || b == 0 {
-                    0u8
-                } else if a == 1 {
+    fn it_multiplies_zero_elems() {
+        assert_eq!(0u8, multiply(0u8, 0u8));
+    }
+
+    #[test]
+    fn it_multiplies_zero_and_nonzero_elems() {
+        for b in 1u16..256u16 {
+            assert_eq!(0u8, multiply(0u8, b as u8));
+        }
+    }
+
+    #[test]
+    fn it_multiplies_nonzero_and_zero_elems() {
+        for a in 1u16..256u16 {
+            assert_eq!(0u8, multiply(a as u8, 0u8));
+        }
+    }
+
+    #[test]
+    fn it_multiplies_any_two_nonzero_elems() {
+        for a in 1u16..256u16 {
+            for b in 1u16..256u16 {
+                let expected = if a == 1 {
                     b as u8
                 } else if b == 1 {
                     a as u8
@@ -145,25 +162,25 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn test_divide_zero_zero() {
+    fn it_panics_dividing_zero_by_zero() {
         divide(0, 0);
     }
     #[test]
     #[should_panic]
-    fn test_divide_one_zero() {
+    fn it_panics_dividing_nonzero_by_zero() {
         divide(1, 0);
     }
 
     #[test]
-    fn test_divide_zero_nonzero() {
+    fn it_divides_zero_by_nonzero() {
         for n in 1u16..256u16 {
             assert_eq!(0, divide(0, n as u8));
         }
     }
 
     #[test]
-    fn test_divide_nonzero() {
-        for numerator in 0..256 {
+    fn it_divides_nonzero_by_nonzero() {
+        for numerator in 1..256 {
             for denominator in 1..256 {
                 let mut index = 0;
                 if numerator != 0 {
@@ -174,18 +191,14 @@ mod tests {
                         index = logn - logd
                     }
                 }
-                let expected = if numerator == 0 {
-                    0
-                } else {
-                    EXP[(index % 255) as usize]
-                };
+                let expected = EXP[(index % 255) as usize];
                 assert_eq!(expected, divide(numerator as u8, denominator as u8));
             }
         }
     }
 
     #[test]
-    fn test_exp_table() {
+    fn it_has_valid_exp_table() {
         assert_eq!(255, EXP.len());
         let gen = 3;
         assert_eq!(1, EXP[0]);
@@ -199,7 +212,7 @@ mod tests {
     }
 
     #[test]
-    fn test_log_table() {
+    fn it_has_valid_log_table() {
         assert_eq!(256, LOG.len());
         for i in 1u16..256u16 {
             assert_eq!(i as u8, EXP[LOG[i as usize] as usize]);

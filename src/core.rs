@@ -44,7 +44,7 @@ impl RTSS {
            data: Vec<u8>)
            -> Result<RTSS, String> {
         if threshold == 0 {
-            return Err(String::from("threshold must be at least 1"));
+            return Err(String::from("threshold should be at least 1"));
         }
         Ok(RTSS {
             identifier: identifier,
@@ -177,7 +177,7 @@ fn mkidentifier() -> [u8; IDENTIFIER_SIZE] {
 /// Validates secret is not longer than max supported length and that k and n are non-zero with k < n.
 fn validate_share_args(secret: &Vec<u8>, k: u8, n: u8) -> Result<(), String> {
     if secret.len() > SHARE_DATA_MAX {
-        return Err(format!("secret must be no larger than {} bytes", SHARE_DATA_MAX));
+        return Err(format!("secret should be no larger than {} bytes", SHARE_DATA_MAX));
     }
     if k == 0 || n == 0 {
         return Err(String::from("threshold k and number of shares n should be non-zero"));
@@ -237,6 +237,11 @@ fn share_tss(secret: &Vec<u8>, k: u8, n: u8) -> Result<Vec<Vec<u8>>, String> {
 /// ```
 pub fn share_rtss(secret: &Vec<u8>, k: u8, n: u8) -> Result<Vec<Vec<u8>>, String> {
     try!(validate_share_args(secret, k, n));
+    // rtss share max data size is 32bytes smaller due to sha256 digest
+    if secret.len() > (SHARE_DATA_MAX - 32) {
+        return Err(format!("secret should be no larger than {} bytes for robust share",
+                           SHARE_DATA_MAX - 32));
+    }
     let digest = util::digest(secret);
     assert_eq!(SHA256_DIGEST_SIZE, digest.as_ref().len());
     let hash_alg_id = HashAlgId::Sha256;
@@ -383,20 +388,21 @@ mod tests {
     const N: u8 = 3;
 
     #[test]
-    fn test_mkidentifier_size() {
+    fn identifier_is_sixteen_bytes() {
         let id = mkidentifier();
         assert_eq!(16, id.len());
     }
 
     #[test]
-    fn test_mkidentifier_distinct() {
+    fn identifiers_are_distinct() {
+        // not always, of course, but with high probability
         let id1 = mkidentifier();
         let id2 = mkidentifier();
         assert!(id1 != id2);
     }
 
     #[test]
-    fn test_share_tss() {
+    fn tss_shares_have_expected_length() {
         let shares = share_tss(&SECRET.to_vec(), K, N).unwrap();
         assert_eq!(N as usize, shares.len());
         for val in shares.iter() {
@@ -405,7 +411,7 @@ mod tests {
     }
 
     #[test]
-    fn test_share_rtss() {
+    fn rtss_shares_have_expected_length() {
         let shares = share_rtss(&SECRET.to_vec(), K, N).unwrap();
         assert_eq!(N as usize, shares.len());
         let expected_size = SECRET.len() + 1 + 20 + 32;
@@ -415,7 +421,7 @@ mod tests {
     }
 
     #[test]
-    fn test_reconstruct_tss() {
+    fn can_share_tss_and_reconstruct_secret_for_threshold() {
         let secret = SECRET.to_vec();
         let shares = share_tss(&secret, K, N).unwrap();
 
@@ -432,10 +438,12 @@ mod tests {
         assert_eq!(secret, reconstruct_tss(&shares10).unwrap());
         assert_eq!(secret, reconstruct_tss(&shares20).unwrap());
         assert_eq!(secret, reconstruct_tss(&shares21).unwrap());
+
+        assert_eq!(secret, reconstruct_tss(&shares).unwrap());
     }
 
     #[test]
-    fn test_reconstruct_tss_initial_bytes_not_distinct() {
+    fn cannot_reconstruct_tss_shares_with_nondistinct_initial_bytes() {
         let secret = SECRET.to_vec();
         let shares = share_tss(&secret, K, N).unwrap();
 
@@ -457,7 +465,7 @@ mod tests {
     }
 
     #[test]
-    fn test_reconstruct_tss_large() {
+    fn can_share_tss_and_reconstruct_shares_for_limit_data_size() {
         let mut rng = match OsRng::new() {
             Ok(g) => g,
             Err(_) => panic!("couldn't acquire secure PSRNG"),
@@ -466,19 +474,94 @@ mod tests {
         rng.fill_bytes(secret.as_mut_slice());
         let secret = secret;
         let shares = share_tss(&secret, K, N).unwrap();
-        assert_eq!(secret, reconstruct_tss(&shares[0..2].to_vec()).unwrap());
-        assert_eq!(secret, reconstruct_tss(&shares[1..3].to_vec()).unwrap());
-        assert_eq!(secret,
-                   reconstruct_tss(&vec![shares[0].to_owned(), shares[2].to_owned()]).unwrap());
+
+        let shares01 = vec![shares[0].to_owned(), shares[1].to_owned()];
+        let shares02 = vec![shares[0].to_owned(), shares[2].to_owned()];
+        let shares12 = vec![shares[1].to_owned(), shares[2].to_owned()];
+        let shares10 = vec![shares[1].to_owned(), shares[0].to_owned()];
+        let shares20 = vec![shares[2].to_owned(), shares[0].to_owned()];
+        let shares21 = vec![shares[2].to_owned(), shares[1].to_owned()];
+
+        assert_eq!(secret, reconstruct_tss(&shares01).unwrap());
+        assert_eq!(secret, reconstruct_tss(&shares02).unwrap());
+        assert_eq!(secret, reconstruct_tss(&shares12).unwrap());
+        assert_eq!(secret, reconstruct_tss(&shares10).unwrap());
+        assert_eq!(secret, reconstruct_tss(&shares20).unwrap());
+        assert_eq!(secret, reconstruct_tss(&shares21).unwrap());
+
+        assert_eq!(secret, reconstruct_tss(&shares).unwrap());
     }
 
     #[test]
-    fn test_reconstruct_rtss() {
-        let shares = share_rtss(&SECRET.to_vec(), K, N).unwrap();
+    fn can_share_rtss_and_reconstruct_secret_for_threshold() {
         let secret = SECRET.to_vec();
-        assert_eq!(secret, reconstruct_rtss(&shares[0..2].to_vec()).unwrap());
-        assert_eq!(secret, reconstruct_rtss(&shares[1..3].to_vec()).unwrap());
-        assert_eq!(secret,
-                   reconstruct_rtss(&vec![shares[0].to_owned(), shares[2].to_owned()]).unwrap());
+        let shares = share_rtss(&secret, K, N).unwrap();
+
+        let shares01 = vec![shares[0].to_owned(), shares[1].to_owned()];
+        let shares02 = vec![shares[0].to_owned(), shares[2].to_owned()];
+        let shares12 = vec![shares[1].to_owned(), shares[2].to_owned()];
+        let shares10 = vec![shares[1].to_owned(), shares[0].to_owned()];
+        let shares20 = vec![shares[2].to_owned(), shares[0].to_owned()];
+        let shares21 = vec![shares[2].to_owned(), shares[1].to_owned()];
+
+        assert_eq!(secret, reconstruct_rtss(&shares01).unwrap());
+        assert_eq!(secret, reconstruct_rtss(&shares02).unwrap());
+        assert_eq!(secret, reconstruct_rtss(&shares12).unwrap());
+        assert_eq!(secret, reconstruct_rtss(&shares10).unwrap());
+        assert_eq!(secret, reconstruct_rtss(&shares20).unwrap());
+        assert_eq!(secret, reconstruct_rtss(&shares21).unwrap());
+
+        assert_eq!(secret, reconstruct_rtss(&shares).unwrap());
     }
+
+    #[test]
+    fn can_share_rtss_and_reconstruct_shares_for_limit_data_size() {
+        let mut rng = match OsRng::new() {
+            Ok(g) => g,
+            Err(_) => panic!("couldn't acquire secure PSRNG"),
+        };
+        let mut secret: Vec<u8> = vec![0u8; 65534 - 32];
+        rng.fill_bytes(secret.as_mut_slice());
+        let secret = secret;
+        let shares = share_rtss(&secret, K, N).unwrap();
+
+        let shares01 = vec![shares[0].to_owned(), shares[1].to_owned()];
+        let shares02 = vec![shares[0].to_owned(), shares[2].to_owned()];
+        let shares12 = vec![shares[1].to_owned(), shares[2].to_owned()];
+        let shares10 = vec![shares[1].to_owned(), shares[0].to_owned()];
+        let shares20 = vec![shares[2].to_owned(), shares[0].to_owned()];
+        let shares21 = vec![shares[2].to_owned(), shares[1].to_owned()];
+
+        assert_eq!(secret, reconstruct_rtss(&shares01).unwrap());
+        assert_eq!(secret, reconstruct_rtss(&shares02).unwrap());
+        assert_eq!(secret, reconstruct_rtss(&shares12).unwrap());
+        assert_eq!(secret, reconstruct_rtss(&shares10).unwrap());
+        assert_eq!(secret, reconstruct_rtss(&shares20).unwrap());
+        assert_eq!(secret, reconstruct_rtss(&shares21).unwrap());
+
+        assert_eq!(secret, reconstruct_rtss(&shares).unwrap());
+    }
+
+    #[test]
+    fn cannot_share_rtss_larger_than_limit_data_size() {
+        let mut rng = match OsRng::new() {
+            Ok(g) => g,
+            Err(_) => panic!("couldn't acquire secure PSRNG"),
+        };
+        // max for rtss is 32 bytes smaller because of the sha256 digest
+        // that is concatenated to the data before sharing
+        let mut secret: Vec<u8> = vec![0u8; (65534 - 32) + 1];
+        rng.fill_bytes(secret.as_mut_slice());
+
+        let secret = secret;
+        match share_rtss(&secret, K, N) {
+            Err(msg) => {
+                let expected = String::from("secret should be no larger than \
+                                             65502 bytes for robust share");
+                assert_eq!(expected, msg);
+            }
+            Ok(_) => unreachable!()
+        }
+    }
+
 }

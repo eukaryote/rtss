@@ -14,6 +14,8 @@ const SHARE_DATA_MAX: usize = 65534;  // 2**16 - 2
 
 const SHA256_DIGEST_SIZE: usize = 32;
 
+/// Hash algorithm ids enumerated by draft-mcgrew-tss-03, of which we only
+/// support Sha256 for encoding and decoding.
 #[derive(Copy, Clone, PartialEq, Debug)]
 enum HashAlgId {
     NullHash = 0,
@@ -21,6 +23,9 @@ enum HashAlgId {
     Sha256 = 2,
 }
 
+/// A robust share according that includes a 16-byte identifier, an
+/// identifier for the hash algorithm used to include a digest in the encoded
+/// data, the threshold for this set of shares, and the actual share data.
 #[derive(Debug)]
 struct RTSS {
     pub identifier: [u8; IDENTIFIER_SIZE],
@@ -30,6 +35,9 @@ struct RTSS {
 }
 
 impl RTSS {
+    /// Constructs a new RTSS share value for the provided identifier,
+    /// hash algorithm id (only HashAlgId::Sha256 currently supported),
+    /// threshold k, and encoded share data.
     fn new(identifier: [u8; IDENTIFIER_SIZE],
            hash_alg_id: HashAlgId,
            threshold: u8,
@@ -45,6 +53,10 @@ impl RTSS {
             data: data,
         })
     }
+    /// Serializes to byte vector according to RTSS spec, which consists
+    /// of the 16-byte identifier, followed by the one-byte hash algorithm
+    /// identifier, followed by the 1-byte threshold, followed by the
+    /// 2-byte share length (bigendian), followed by the share data.
     fn to_bytes(&mut self) -> Vec<u8> {
         let size = self.data.len() as u16;
         // - identifier [16 bytes]
@@ -65,6 +77,13 @@ impl RTSS {
         }
         return buff.to_vec();
     }
+    /// Deserializes a byte vector representing an RTSS share created by
+    /// `to_bytes` or an otherwise compatible implementation of the RSS spec,
+    /// with the caveat that this library only supports SHA-256 as the
+    /// hash algorithm. The result is an error if the identifiers do no match
+    /// on all shares or are otherwise invalid, if the hash algorithm identifer
+    /// is not for SHA-256, or if the encoded share data length does not match
+    /// the actual length of the data.
     fn from_bytes(data: &Vec<u8>) -> Result<RTSS, String> {
         if data.len() < 21 {
             return Err(String::from("invalid data"));
@@ -98,16 +117,26 @@ impl RTSS {
     }
 }
 
-fn f(x: u8, arr: &[u8]) -> u8 {
+/// Shares a single byte using the non-zero index `u` (0, n] of the share and
+/// an array of bytes consisting of a byte of the secret as the initial
+/// byte of the array and the remaining bytes are selected independently and
+/// uniformly at random.
+fn f(x: u8, arr: &[u8]) -> Result<u8, String> {
+    // f(X, A) =  GF_SUM A[i] (*) X^i
+    //            i=0,M-1
+    if x == 0 {
+        return Err(String::from("x should be a non-zero byte"));
+    }
     let mut x_i: u8 = 1;
     let mut total: u8 = 0;
     for octet in arr {
         total = gf256::add(total, gf256::multiply(*octet, x_i));
         x_i = gf256::multiply(x_i, x);
     }
-    total
+    Ok(total)
 }
 
+/// Constructs the ith lagrange function for interpolation and answers result evaluated at zero.
 fn lagrange(i: usize, u: &[u8]) -> Result<u8, String> {
     let mut result = 1;
     let gi = u[i];
@@ -123,6 +152,9 @@ fn lagrange(i: usize, u: &[u8]) -> Result<u8, String> {
     Ok(result)
 }
 
+/// Interpolates the two equal-length arrays of bytes, where `u` is the first
+/// byte of each share for every call, and `v` is the jth byte of each share,
+/// with j in [1..n).
 fn interpolate(u: &[u8], v: &[u8]) -> Result<u8, String> {
     if u.len() != v.len() {
         return Err(String::from("arrays to be interpolated should be same length"));
@@ -134,7 +166,7 @@ fn interpolate(u: &[u8], v: &[u8]) -> Result<u8, String> {
     return Ok(result);
 }
 
-/// Generate a random 16-byte identifier for identifying a set of shares.
+/// Generates a random 16-byte identifier for identifying a set of shares.
 fn mkidentifier() -> [u8; IDENTIFIER_SIZE] {
     let mut rng = rand::os::OsRng::new().expect("couldn't acquire secure PSRNG");
     let mut id = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8];
@@ -142,7 +174,7 @@ fn mkidentifier() -> [u8; IDENTIFIER_SIZE] {
     id
 }
 
-/// Validate secret is not longer than max supported length and that k and n are non-zero with k < n.
+/// Validates secret is not longer than max supported length and that k and n are non-zero with k < n.
 fn validate_share_args(secret: &Vec<u8>, k: u8, n: u8) -> Result<(), String> {
     if secret.len() > SHARE_DATA_MAX {
         return Err(format!("secret must be no larger than {} bytes", SHARE_DATA_MAX));
@@ -178,7 +210,7 @@ fn share_tss(secret: &Vec<u8>, k: u8, n: u8) -> Result<Vec<Vec<u8>>, String> {
             a.push(rng.gen::<u8>());
         }
         for i in 0..n {
-            let res = f(vs[i as usize][0], a.as_slice());
+            let res = try!(f(vs[i as usize][0], a.as_slice()));
             vs[i as usize].push(res);
         }
     }
@@ -226,7 +258,7 @@ pub fn share_rtss(secret: &Vec<u8>, k: u8, n: u8) -> Result<Vec<Vec<u8>>, String
     return Ok(vs);
 }
 
-/// Validate expected invariants of shares and answer the number of bytes in each shares.
+/// Validates expected invariants of shares and answers the number of bytes in each shares.
 fn reconstruct_precheck(shares: &Vec<Vec<u8>>) -> Result<u16, String> {
     if shares.len() >= SHARES_MAX {
         return Err(format!("no more than {} shares are allowed", SHARES_MAX));

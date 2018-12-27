@@ -1,8 +1,8 @@
 language: rust
 install:
-- wget https://github.com/jedisct1/libsodium/releases/download/1.0.11/libsodium-1.0.11.tar.gz
-- tar xvfz libsodium-1.0.11.tar.gz
-- cd libsodium-1.0.11 && ./configure --prefix=/usr && make && sudo make install && cd ..
+- wget https://download.libsodium.org/libsodium/releases/libsodium-1.0.16.tar.gz
+- tar xvfz libsodium-1.0.16.tar.gz
+- cd libsodium-1.0.16 && ./configure --prefix=/usr && make && sudo make install && cd ..
 script:
 - cargo build --verbose
 - cargo test --verbose

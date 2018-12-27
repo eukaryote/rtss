@@ -1,8 +1,7 @@
 extern crate clap;
 extern crate rtss;
-extern crate rustc_serialize;
+extern crate hex;
 
-use rustc_serialize::hex::ToHex;
 use clap::{Arg, App};
 
 static EXPLANATION:  &'static str = "Use Shamir's Secret Sharing scheme to \
@@ -25,7 +24,7 @@ fn main() {
 
 fn run() -> i32 {
     let matches = App::new("rtss")
-        .version("0.2.0")
+        .version("0.3.0")
         .about("Share a Secret")
         .arg(Arg::with_name("threshold")
             .value_name("K")
@@ -66,7 +65,7 @@ fn run() -> i32 {
         }
         Ok(shares) => {
             for share in shares.iter() {
-                println!("{}\n", (*share.as_slice()).to_hex());
+                println!("{}\n", hex::encode(share));
             }
             return 0;
         }

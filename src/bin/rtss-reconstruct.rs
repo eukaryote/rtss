@@ -1,8 +1,7 @@
 extern crate clap;
 extern crate rtss;
-extern crate rustc_serialize;
+extern crate hex;
 
-use rustc_serialize::hex::{FromHex, ToHex};
 use clap::{Arg, App};
 
 static EXPLANATION: &'static str = "Reconstruct a secret by providing at \
@@ -17,7 +16,7 @@ fn main() {
 
 fn run() -> i32 {
     let matches = App::new("rtss-reconstruct")
-        .version("0.2.0")
+        .version("0.3.0")
         .about("Reconstruct Secret from K Shares")
         .arg(Arg::with_name("share")
             .value_name("SHARE")
@@ -31,7 +30,7 @@ fn run() -> i32 {
     let shares: Vec<_> = matches.values_of("share").unwrap().collect();
     let mut share_bytes = Vec::with_capacity(shares.len());
     for share in shares.iter() {
-        match share.from_hex() {
+        match hex::decode(share) {
             Err(e) => {
                 println!("invalid hexadecimal: {:?}", e);
                 return 1;
@@ -47,7 +46,7 @@ fn run() -> i32 {
                     return 0;
                 }
                 Err(_) => {
-                    println!("{}", secret.to_hex());
+                    println!("{}", hex::encode(secret));
                     return 0;
                 }
             }

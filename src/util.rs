@@ -6,16 +6,12 @@ use sodiumoxide::crypto::hash::sha256;
 use std::error::Error;
 use std::io::prelude::*;
 use std::fs::File;
+use std::sync::{Once, ONCE_INIT};
 
-static mut NACL_INITIALIZED: bool = false;  // whether we've initialized nacl
+static INIT: Once = ONCE_INIT;
 
 pub fn nacl_init() {
-    unsafe {
-        if !NACL_INITIALIZED {
-            sodiumoxide::init();
-            NACL_INITIALIZED = true;
-        }
-    }
+        INIT.call_once(|| sodiumoxide::init().unwrap() );
 }
 
 /// Read no more than `max_size` bytes from file at given path.

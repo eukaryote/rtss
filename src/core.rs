@@ -168,9 +168,9 @@ fn interpolate(u: &[u8], v: &[u8]) -> Result<u8, String> {
 
 /// Generates a random 16-byte identifier for identifying a set of shares.
 fn mkidentifier() -> [u8; IDENTIFIER_SIZE] {
-    let mut rng = rand::os::OsRng::new().expect("couldn't acquire secure PSRNG");
+    let mut rng = rand::rngs::OsRng::new().expect("couldn't acquire secure PSRNG");
     let mut id = [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8];
-    rng.fill_bytes(&mut id);
+    rng.fill(&mut id);
     id
 }
 
@@ -192,7 +192,7 @@ fn validate_share_args(secret: &Vec<u8>, k: u8, n: u8) -> Result<(), String> {
 /// to reconstruct the secret (e.g., using `reconstruct_tss`).
 fn share_tss(secret: &Vec<u8>, k: u8, n: u8) -> Result<Vec<Vec<u8>>, String> {
     try!(validate_share_args(secret, k, n));
-    let mut rng = match rand::OsRng::new() {
+    let mut rng = match rand::rngs::OsRng::new() {
         Ok(rng) => rng,
         Err(_) => return Err(String::from("couldn't acquire secure PSRNG")),
     };
@@ -381,7 +381,8 @@ pub fn reconstruct_rtss(shares: &Vec<Vec<u8>>) -> Result<Vec<u8>, String> {
 mod tests {
     use super::{mkidentifier, share_tss, share_rtss, reconstruct_tss, reconstruct_rtss};
 
-    use rand::{OsRng, Rng};
+    use rand::{Rng};
+    use rand::rngs::{OsRng};
 
     const SECRET: [u8; 4] = [3, 1, 4, 1];
     const K: u8 = 2;
@@ -471,7 +472,7 @@ mod tests {
             Err(_) => panic!("couldn't acquire secure PSRNG"),
         };
         let mut secret: Vec<u8> = vec![0u8; 65534];
-        rng.fill_bytes(secret.as_mut_slice());
+        rng.fill(secret.as_mut_slice());
         let secret = secret;
         let shares = share_tss(&secret, K, N).unwrap();
 
@@ -521,7 +522,7 @@ mod tests {
             Err(_) => panic!("couldn't acquire secure PSRNG"),
         };
         let mut secret: Vec<u8> = vec![0u8; 65534 - 32];
-        rng.fill_bytes(secret.as_mut_slice());
+        rng.fill(secret.as_mut_slice());
         let secret = secret;
         let shares = share_rtss(&secret, K, N).unwrap();
 
@@ -551,7 +552,7 @@ mod tests {
         // max for rtss is 32 bytes smaller because of the sha256 digest
         // that is concatenated to the data before sharing
         let mut secret: Vec<u8> = vec![0u8; (65534 - 32) + 1];
-        rng.fill_bytes(secret.as_mut_slice());
+        rng.fill(secret.as_mut_slice());
 
         let secret = secret;
         match share_rtss(&secret, K, N) {
